@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Text Editor
+Comment=A minimal text editor
+Exec=TextEditor %F
+Icon=texteditor
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;
+MimeType=text/*;text/plain;text/x-csrc;text/x-chdr;text/x-c++src;text/x-c++hdr;text/x-python;text/javascript;text/typescript;text/html;text/css;text/xml;text/markdown;application/json;application/xml;application/javascript;application/x-shellscript;text/x-shellscript;text/x-java;text/x-rustsrc;text/x-go;text/x-yaml;application/x-yaml;text/x-makefile;text/x-diff;text/x-patch;
