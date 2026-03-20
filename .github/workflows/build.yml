@@ -30,11 +30,17 @@ jobs:
 
       - name: Package
         run: cd build && cpack
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'set(APP_VERSION' CMakeLists.txt | grep -o '".*"' | tr -d '"')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
 
       - name: Upload .deb as release asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Latest Build
-          prerelease: true
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
           files: build/*.deb

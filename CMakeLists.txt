@@ -46,7 +46,7 @@ execute_process(
 )
 string(REGEX REPLACE "^v" "" APP_VERSION "${GIT_TAG}")
 if(NOT APP_VERSION)
-    set(APP_VERSION "1.2.0")
+    set(APP_VERSION "1.3.0")
 endif()
 
 set(CPACK_GENERATOR                     "DEB")
