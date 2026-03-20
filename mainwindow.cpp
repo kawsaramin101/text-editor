@@ -3,6 +3,7 @@
 #include <QDesktopServices>
 #include <QDialog>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -11,6 +12,7 @@
 #include <QTextStream>
 #include <QUrl>
 #include <QVBoxLayout>
+
 // ─── CodeEditor ────────────────────────────────────────────────────────────
 
 CodeEditor::CodeEditor(QWidget *parent) : QPlainTextEdit(parent) {
@@ -65,8 +67,7 @@ void CodeEditor::highlightCurrentLine() {
   QList<QTextEdit::ExtraSelection> extras;
   if (!isReadOnly()) {
     QTextEdit::ExtraSelection sel;
-    QColor lineColor = palette().color(QPalette::AlternateBase);
-    sel.format.setBackground(lineColor);
+    sel.format.setBackground(palette().color(QPalette::AlternateBase));
     sel.format.setProperty(QTextFormat::FullWidthSelection, true);
     sel.cursor = textCursor();
     sel.cursor.clearSelection();
@@ -79,7 +80,6 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
   QPainter painter(lineNumberArea);
   painter.fillRect(event->rect(), palette().color(QPalette::Window));
 
-  // Subtle right border
   painter.setPen(palette().color(QPalette::Mid));
   painter.drawLine(lineNumberArea->width() - 1, event->rect().top(),
                    lineNumberArea->width() - 1, event->rect().bottom());
@@ -95,11 +95,9 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
       bool isCurrent = (blockNumber == textCursor().blockNumber());
       painter.setPen(isCurrent ? palette().color(QPalette::Text)
                                : palette().color(QPalette::PlaceholderText));
-
       QFont f = painter.font();
       f.setBold(isCurrent);
       painter.setFont(f);
-
       painter.drawText(0, top, lineNumberArea->width() - 8,
                        fontMetrics().height(), Qt::AlignRight,
                        QString::number(blockNumber + 1));
@@ -119,11 +117,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   menuBar()->hide();
 
-  // Status bar: cursor pos on left, help hint on right
   cursorLabel = new QLabel("Ln 1, Col 1");
   statusBar()->addWidget(cursorLabel);
   statusBar()->addPermanentWidget(new QLabel("Help: Ctrl+H"));
   statusBar()->setSizeGripEnabled(false);
+
+  statusBar()->setStyleSheet(
+      "QStatusBar::item { border: none; }"
+      "QLabel { padding-left: 4px; padding-right: 4px; }");
+  statusBar()->setFixedHeight(24);
 
   createMenus();
   updateTitle();
@@ -142,17 +144,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   });
 }
 
-void MainWindow::openFileFromPath(const QString &path) {
-  QFile f(path);
-  if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
-    return;
-  editor->setPlainText(QTextStream(&f).readAll());
-  currentFile = path;
-  editor->document()->setModified(false);
-  modified = false;
-  updateTitle();
-}
-
 void MainWindow::createMenus() {
   auto add = [this](QKeySequence key, auto slot) {
     auto *a = new QAction(this);
@@ -167,6 +158,17 @@ void MainWindow::createMenus() {
   add(QKeySequence::SaveAs, &MainWindow::saveFileAs);
   add(QKeySequence::Quit, [] { qApp->quit(); });
   add(QKeySequence(Qt::CTRL | Qt::Key_H), &MainWindow::showHelp);
+}
+
+void MainWindow::openFileFromPath(const QString &path) {
+  QFile f(path);
+  if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+    return;
+  editor->setPlainText(QTextStream(&f).readAll());
+  currentFile = path;
+  editor->document()->setModified(false);
+  modified = false;
+  updateTitle();
 }
 
 void MainWindow::newFile() {
@@ -184,22 +186,11 @@ void MainWindow::newFile() {
 }
 
 void MainWindow::openFile() {
-  QString path = QFileDialog::getOpenFileName(
-      this, "Open File", {},
-      "Text files (*.txt *.md *.cpp *.h *.py *.js *.ts *.json *.xml *.html "
-      "*.css);;All files (*)");
+  QString path =
+      QFileDialog::getOpenFileName(this, "Open File", {}, "All files (*)");
   if (path.isEmpty())
     return;
-  QFile f(path);
-  if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QMessageBox::warning(this, "Error", "Cannot open file: " + path);
-    return;
-  }
-  editor->setPlainText(QTextStream(&f).readAll());
-  currentFile = path;
-  editor->document()->setModified(false);
-  modified = false;
-  updateTitle();
+  openFileFromPath(path);
 }
 
 void MainWindow::saveFile() {
@@ -219,8 +210,8 @@ void MainWindow::saveFile() {
 }
 
 void MainWindow::saveFileAs() {
-  QString path = QFileDialog::getSaveFileName(
-      this, "Save As", {}, "Text files (*.txt);;All files (*)");
+  QString path =
+      QFileDialog::getSaveFileName(this, "Save As", {}, "All files (*)");
   if (path.isEmpty())
     return;
   currentFile = path;
@@ -229,7 +220,7 @@ void MainWindow::saveFileAs() {
 
 void MainWindow::showHelp() {
   auto *dlg = new QDialog(this);
-  dlg->setWindowTitle("Keyboard Shortcuts");
+  dlg->setWindowTitle("Help");
   dlg->setMinimumWidth(340);
   dlg->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -243,21 +234,21 @@ void MainWindow::showHelp() {
   };
 
   layout->addWidget(new QLabel("<h3 style='margin:0'>Shortcuts</h3>"));
-
   addRow("Ctrl+N", "New file");
   addRow("Ctrl+O", "Open file");
   addRow("Ctrl+S", "Save");
   addRow("Ctrl+Shift+S", "Save as");
   addRow("Ctrl+H", "Show this help");
   addRow("Ctrl+Q", "Quit");
-
   layout->addSpacing(8);
 
+  const QString repoUrl = QStringLiteral(APP_REPO_URL);
+
   auto *repoLabel =
-      new QLabel("<a href='https://github.com/your-username/texteditor'>GitHub "
-                 "Repository</a>");
+      new QLabel(QString("GitHub repo: <a href='%1'>%1</a>").arg(repoUrl));
   repoLabel->setTextFormat(Qt::RichText);
   repoLabel->setOpenExternalLinks(true);
+  repoLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
   layout->addWidget(repoLabel);
 
   dlg->exec();
